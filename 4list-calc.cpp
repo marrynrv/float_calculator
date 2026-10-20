@@ -50,14 +50,13 @@ struct IntCalculator {
         return (a & ~mask) | (b & mask);
     }
 
-
     static int scale(int a, int b) {
         int maximum = max_val(a, b);
         int minimum = (a ^ b) ^ maximum; 
         return divide(maximum, minimum);
     }
 
-    // метод Ньютона
+    // Newton's method for square root
     static int sqrt_val(int a) {
         if (a <= 0) return 0;
         int x = a;
@@ -83,9 +82,9 @@ struct FloatCalculator {
         unsigned int bits = *(unsigned int*)&num;
         FloatParts parts;
         parts.sign = bits >> 31;
-        parts.exp = (bits >> 23) & 0xFF; //0xFF - 11111111
-        // Возвращаем скрытый бит 
-        parts.mant = (bits & 0x7FFFFF) | 0x800000;// 1..23 нуля
+        parts.exp = (bits >> 23) & 0xFF; // 0xFF - 11111111
+        // Restore the hidden bit
+        parts.mant = (bits & 0x7FFFFF) | 0x800000;
         return parts;
     }
 
@@ -98,7 +97,7 @@ struct FloatCalculator {
         FloatParts pA = unpack(a);
         FloatParts pB = unpack(b);
         
-        // Выравниваем экспоненты перед сложением или вычитанием
+        // Align exponents before addition or subtraction
         if (pA.exp > pB.exp) {
             pB.mant >>= IntCalculator::sub(pA.exp, pB.exp);
             pB.exp = pA.exp;
@@ -121,8 +120,8 @@ struct FloatCalculator {
             }
         }
         
-        // Нормализуем мантиссу в случае переполнения
-        if (resMant & 0x1000000) { //25 бит
+        // Normalize mantissa in case of overflow
+        if (resMant & 0x1000000) { // 25 bits
             resMant >>= 1;
             pA.exp = IntCalculator::add(pA.exp, 1);
         }
@@ -131,7 +130,7 @@ struct FloatCalculator {
 
     static float sub(float a, float b) {
         unsigned int* bBits = (unsigned int*)&b;
-        *bBits ^= 0x80000000; // 1..24 нуля
+        *bBits ^= 0x80000000; 
         return add(a, b);
     }
 
@@ -140,14 +139,14 @@ struct FloatCalculator {
         FloatParts pB = unpack(b);
         unsigned int resSign = pA.sign ^ pB.sign;
         
-        // Экспоненты складываются, затем вычитается смещение (bias = 127)
+        // Exponents are added, then bias (127) is subtracted
         int resExp = IntCalculator::sub(IntCalculator::add(pA.exp, pB.exp), 127);
         
-        // Умножаем мантиссы с использованием 64-битного типа во избежание переполнения
+        // Multiply mantissas using 64-bit type to avoid overflow
         unsigned long long longMant = (unsigned long long)pA.mant * pB.mant;
-        unsigned int resMant = longMant >> 23; // Сдвигаем обратно к 23-битному формату
+        unsigned int resMant = longMant >> 23; // Shift back to 23-bit format
         
-        // Нормализация результата
+        // Normalize result
         if (resMant & 0x1000000) {
             resMant >>= 1;
             resExp = IntCalculator::add(resExp, 1);
@@ -160,14 +159,14 @@ struct FloatCalculator {
         FloatParts pB = unpack(b);
         unsigned int resSign = pA.sign ^ pB.sign;
         
-        // Экспоненты вычитаются, затем добавляется смещение 
+        // Exponents are subtracted, then bias is added
         int resExp = IntCalculator::add(IntCalculator::sub(pA.exp, pB.exp), 127);
 
-        // Масштабируем делимое вверх для сохранения точности при делении
+        // Scale dividend up to maintain precision during division
         unsigned long long dividend = (unsigned long long)pA.mant << 23;
         unsigned int resMant = dividend / pB.mant;
 
-        // Нормализация результата, если требуется
+        // Normalize result if needed
         if (!(resMant & 0x800000)) {
             resMant <<= 1;
             resExp = IntCalculator::sub(resExp, 1);
@@ -175,11 +174,11 @@ struct FloatCalculator {
         return pack(resSign, resExp, resMant);
     }
 
-    // Возвращает максимум
+    // Returns the maximum value
     static float max_val(float a, float b) {
         float diff = sub(a, b);
         unsigned int diffBits = *(unsigned int*)&diff;
-        unsigned int mask = diffBits >> 31; // 1 если a < b, 0 если a >= b
+        unsigned int mask = diffBits >> 31; // 1 if a < b, 0 if a >= b
         
         unsigned int aBits = *(unsigned int*)&a;
         unsigned int bBits = *(unsigned int*)&b;
@@ -188,14 +187,14 @@ struct FloatCalculator {
         return *(float*)&resBits;
     }
 
-    // Сколько раз меньшее число помещается в большем
+    // How many times the smaller number fits into the larger one
     static float scale(float a, float b) {
         float maximum = max_val(a, b);
         float minimum = sub(add(a, b), maximum); 
         return divide(maximum, minimum);
     }
 
-    // Квадратный корень Вавилонский метод
+    // Babylonian method for square root
     static float sqrt_val(float a) {
         if (a <= 0.0f) return 0.0f;
         float x = a;
@@ -206,7 +205,6 @@ struct FloatCalculator {
         return x;
     }
 };
-
 
 void printIntVector(const string& label, const vector<int>& vec) {
     cout << label << ": ";
@@ -272,13 +270,10 @@ void processFloatArrays(const vector<float>& a, const vector<float>& b) {
     cout << endl;
 }
 
-
 int main() {
-
     vector<int> intA = {16, 100, 25, 4};
     vector<int> intB = {4,  25,  9,  2};
     processIntArrays(intA, intB);
-
 
     vector<float> floatA = {9.0f,  50.0f, 0.25f, 16.0f};
     vector<float> floatB = {2.0f,  5.0f,  0.5f,  2.0f};
